@@ -1,6 +1,6 @@
 # standard library
 import datetime as dt
-import json
+import json, time
 
 # third-party imports
 from rich.console import Console
@@ -35,6 +35,19 @@ def debug(song_length_delta, end_time):
         print("Invalid End Time")
 
 
+def get_song_delta(media_length: str) -> dt.timedelta:
+    hours, minutes, seconds = media_length.split(":")
+    return dt.timedelta(
+        hours=int(hours),
+        minutes=int(minutes),
+        seconds=int(seconds),
+    )
+
+
+def str_to_datetime(string: str) -> dt.datetime:
+    return dt.datetime.strptime(string, "%I:%M:%S %p")
+
+
 def load_saved() -> tuple[dt.timedelta | None, dt.datetime | None]:
     """
     ph
@@ -43,20 +56,13 @@ def load_saved() -> tuple[dt.timedelta | None, dt.datetime | None]:
     with open(config_path) as json_file:
         config_data = json.load(json_file)
 
-    # settings
-    end_time_str = config_data.get("end_time")
-    song_length_str = config_data.get("song_length")
-
+    end_time_str = config_data.get("end_time", "")
+    song_length_str = config_data.get("song_length", "")
     if not isinstance(end_time_str, str) or not isinstance(song_length_str, str):
         return None, None
 
-    end_time = dt.datetime.strptime(end_time_str, "%I:%M:%S %p")
-    hours, minutes, seconds = song_length_str.split(":")
-    song_length_delta = dt.timedelta(
-        hours=int(hours),
-        minutes=int(minutes),
-        seconds=int(seconds),
-    )
+    end_time = str_to_datetime(end_time_str)
+    song_length_delta = get_song_delta(song_length_str)
     return song_length_delta, end_time
 
 
@@ -71,9 +77,13 @@ def input_time():
     ph
     """
     while True:
-        msg = "\nInput your time in this format 'Hour:Mininute PM/AM'\n"
+        msg = "\nInput your time in this format 'Hours:Minutes:Seconds PM/AM'\n"
         end_time_str = input(msg)
-        end_time = dt.datetime.strptime(end_time_str, "%I:%M %p")
+        try:
+            end_time = dt.datetime.strptime(end_time_str, "%I:%M %p")
+        except TypeError:
+            print("That is not a valid time format")
+            continue
         formatted_time = end_time
         if input(f"Is this time correct?\n{formatted_time}"):
             break
@@ -83,7 +93,7 @@ def input_custom():
     """
     ph
     """
-    song_length = input("How long is the media?")
+    song_length = input("How long is the media/when do you want the time to sync to?")
 
     end_time = input_time()
 
@@ -105,21 +115,27 @@ def start(song_length_delta, end_time) -> None:
     if start_time.time() < dt.datetime.now().time():
         print("Required start time has already passed")
 
+    print()
     try:
         while True:
-            if start_time.time() < dt.datetime.now().time():
+            cur_datetime = dt.datetime.now()
+            if start_time.time() < cur_datetime.time():
                 break
+            time.sleep(1)
+            str_time = cur_datetime.strftime(STR_FORMAT)
+            print(f"\rCurrent Time: {str_time}", end="", flush=True)
         pyautogui.press("playpause")
         print("\nPlaying Media Now")
     except KeyboardInterrupt:
-        print("\nCancelled Time to Media Sync")
+        print("\n\nCancelled Media to Time Sync")
 
 
 def main():
-    console.print("Media to Time Sync\n", style="primary")
+    console.print("Media to Time Sync", style="primary")
 
     song_length_delta, end_time = None, None
-    use_saved = if_yes("Do you want to use the saved media length and end time?\n")
+    # use_saved = if_yes("\nDo you want to use the saved media length and end time?\n")
+    use_saved = True
     if use_saved:
         song_length_delta, end_time = load_saved()
     else:

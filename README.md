@@ -1,1 +1,1 @@
-# Music-to-Time-Sync
+# Media-to-Time-Sync
